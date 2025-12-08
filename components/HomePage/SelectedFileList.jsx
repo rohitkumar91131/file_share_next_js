@@ -1,0 +1,79 @@
+"use client";
+
+export default function SelectedFiles() {
+  const files = [
+    {
+      name: "Movie_HD_1080p_Sample_Video_File_That_Is_Very_Long_Name.mp4",
+      size: "700 MB",
+      type: "Video",
+      progress: 45,
+    },
+    {
+      name: "Notes_Chapter_1_to_10_Complete.pdf",
+      size: "2.3 MB",
+      type: "PDF",
+      progress: 100,
+    },
+    {
+      name: "Image_Collection_Pack.zip",
+      size: "350 MB",
+      type: "Zip",
+      progress: 72,
+    },
+  ];
+
+  return (
+    <div className="w-full max-w-4xl mx-auto mt-10 space-y-3">
+      <div className="hidden md:grid md:[grid-template-columns:2fr_1fr_1fr_1fr] text-sm font-medium text-gray-500 px-4">
+        <span>Name</span>
+        <span>Type</span>
+        <span>Size</span>
+        <span>Downloaded</span>
+      </div>
+
+      {files.map((file, i) => (
+        <div
+          key={i}
+          className="border rounded-xl p-4 flex flex-col gap-4 md:[grid-template-columns:2fr_1fr_1fr_1fr] md:grid md:items-center"
+        >
+          <div className="flex justify-between items-start md:block w-full">
+            <p className="font-medium text-sm md:text-base break-all whitespace-normal w-full block">
+              {file.name}
+            </p>
+
+            <span className="md:hidden text-xs font-semibold text-gray-700 bg-gray-200 px-2 py-1 rounded-md">
+              {file.type}
+            </span>
+          </div>
+
+          <div className="hidden md:block text-sm text-gray-700">
+            <span className="bg-gray-200 px-2 py-1 rounded-md text-gray-700 text-xs font-semibold">
+              {file.type}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between md:block text-sm">
+            <span className="md:hidden text-xs text-gray-500">Size</span>
+            <span>{file.size}</span>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between md:block text-sm">
+              <span className="md:hidden text-xs text-gray-500">
+                Downloaded
+              </span>
+              <span>{file.progress}%</span>
+            </div>
+
+            <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-black"
+                style={{ width: `${file.progress}%` }}
+              ></div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
