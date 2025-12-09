@@ -9,12 +9,14 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@saltyrtc/chunked-dc": "^2.0.1",
     "lucide-react": "^0.556.0",
     "mongoose": "^9.0.1",
     "nanoid": "^5.1.6",
     "next": "16.0.7",
     "react": "19.2.0",
     "react-dom": "19.2.0",
+    "streamsaver": "^2.0.6",
     "uuid": "^13.0.0"
   },
   "devDependencies": {

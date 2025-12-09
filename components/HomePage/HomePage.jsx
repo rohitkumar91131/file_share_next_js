@@ -11,13 +11,15 @@ import FilePicker from '@/components/HomePage/FileInput'
 import SelectedFiles from '@/components/HomePage/SelectedFiles'
 import PairingStatusSenderSide from './PairingStatusSenderSide.jsx'
 import { SendFileDataProvider, useSendFileData } from '@/context/SendFileDataContext'
+import FileMetaInput from '@/testing/filesend/SendFile'
 function HomePage() {
   return (
     <>
        <Navbar/> 
       <ShareLink  />  
-      <FilePicker/>
-      <SelectedFiles/>
+      {/* <FilePicker/>
+      <SelectedFiles/> */}
+      <FileMetaInput/>
       <PairingStatusSenderSide/> 
 
     </>
