@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState } from "react";
-import { Check, Link, Users, FileKey, Network } from "lucide-react";
+import { Check, Link, Users, FileKey, Network, Zap } from "lucide-react"; // Zap icon for connected
 
 const SenderStatusContext = createContext(null);
 
@@ -26,16 +26,22 @@ const STEPS = [
   },
   {
     id: 4,
-    title: "Checking ICE Candidates",
+    title: "Verifying Connection",
     subtitle: "Finalizing network path...",
     icon: Network,
+  },
+  {
+    id: 5, // New Step
+    title: "Connection Established",
+    subtitle: "Ready to transfer files",
+    icon: Zap,
   },
 ];
 
 export function SenderStatusProvider({ children }) {
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(0); // Initially 0 or 1
   const [error, setError] = useState("");
-  const [sessionId , setSessionId] = useState(null);
+  const [sessionId, setSessionId] = useState(null);
 
   return (
     <SenderStatusContext.Provider
@@ -45,7 +51,8 @@ export function SenderStatusProvider({ children }) {
         setCurrentStep,
         error,
         setError,
-        sessionId , setSessionId
+        sessionId,
+        setSessionId,
       }}
     >
       {children}

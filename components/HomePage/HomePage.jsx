@@ -1,5 +1,5 @@
 "use client"
-import React from 'react'
+import React, { useEffect } from 'react'
 import ShareLink from './ShareLink'
 import Navbar from './Navbar'
 import Pair from '@/components/HomePage/Pair.jsx'
@@ -7,17 +7,20 @@ import EnterName from './EnterName'
 import Loading from '@/components/Ui/Loading'
 import FilesList from '@/components/ReceivingPage/FilesList'
 import ReceivingFilesHeading from '@/components/ReceivingPage/ReceivingFilesHeading'
-import FilePicker from '@/components/HomePage/FilePicker'
-import SelectedFiles from '@/components/HomePage/SelectedFileList'
+import FilePicker from '@/components/HomePage/FileInput'
+import SelectedFiles from '@/components/HomePage/SelectedFiles'
 import PairingStatusSenderSide from './PairingStatusSenderSide.jsx'
+import { SendFileDataProvider, useSendFileData } from '@/context/SendFileDataContext'
 function HomePage() {
   return (
-    <div>
+    <>
        <Navbar/> 
       <ShareLink  />  
+      <FilePicker/>
+      <SelectedFiles/>
       <PairingStatusSenderSide/> 
 
-    </div>
+    </>
   )
 }
 

@@ -5,6 +5,7 @@ import { Check } from "lucide-react";
 import { useSenderStatus } from "@/context/SenderSideStatusContext";
 import { WaitForPeerSenderSide } from "@/utils/WaitForPeerSenderSide";
 import { sendAnswer } from "@/lib/webrtc/SendAnswer";
+import { useWebRTCStore } from "@/context/WebRTCContext"; 
 
 export default function PairingStatusSenderSide() {
   const {
@@ -16,22 +17,73 @@ export default function PairingStatusSenderSide() {
     setError,
   } = useSenderStatus();
 
-  const pcRef = useRef(null);
+  // Context se Refs le liye
+  const { peerConnectionRef, dataChannelRef } = useWebRTCStore();
+  
   const sessionRef = useRef(null);
 
   const ensurePeerConnection = () => {
-    if (!pcRef.current) {
-      pcRef.current = new RTCPeerConnection({
+    // Check agar context me already PC hai
+    if (!peerConnectionRef.current) {
+      
+      const pc = new RTCPeerConnection({
         iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
       });
+
+      console.log("Creating new PC on Answer Side (Sender)");
+
+      // ---------------------------------------------------------
+      // IMPORTANT: Data Channel Catching Logic
+      // ---------------------------------------------------------
+      pc.ondatachannel = (event) => {
+        console.log("Data Channel received from Offer side!");
+        
+        const receiveChannel = event.channel;
+        
+        // 1. Channel Store karo
+        dataChannelRef.current = receiveChannel;
+
+        // 2. Listeners set karo
+        receiveChannel.onopen = () => {
+            console.log("✅ Data Channel is FULLY OPEN!");
+            // Yahan hum UI ko batayenge ki connect ho gaya (Step 5)
+            setCurrentStep(5);
+        };
+
+        receiveChannel.onmessage = (e) => {
+            console.log("Msg received:", e.data);
+        };
+        
+        receiveChannel.onerror = (error) => {
+            console.error("Data Channel Error:", error);
+            setError("Connection interrupted");
+        };
+      };
+      // ---------------------------------------------------------
+
+      // Optional: Monitor ICE connection state for Step 4 updates
+      pc.oniceconnectionstatechange = () => {
+        console.log("ICE State Change:", pc.iceConnectionState);
+        if (pc.iceConnectionState === "checking") {
+            // Already at step 3/4, ensure we show verifying
+            if(currentStep < 4) setCurrentStep(4);
+        }
+        if (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed") {
+            setError("Network connection failed");
+        }
+      };
+
+      // PC ko Context wale ref me store kar diya
+      peerConnectionRef.current = pc;
     }
-    return pcRef.current;
+    
+    return peerConnectionRef.current;
   };
 
   const progressHeight =
     STEPS.length > 1 ? `${(currentStep / (STEPS.length - 1)) * 88}%` : "0%";
 
-  // STEP 1: wait for peer offer, session store karo
+  // STEP 1: Wait for peer offer
   useEffect(() => {
     if (!sessionId) return;
     if (currentStep !== 1) return;
@@ -41,7 +93,6 @@ export default function PairingStatusSenderSide() {
     const run = async () => {
       try {
         setError("");
-
         const { found, session } = await WaitForPeerSenderSide(sessionId);
         if (cancelled) return;
 
@@ -51,20 +102,17 @@ export default function PairingStatusSenderSide() {
         }
 
         sessionRef.current = session || null;
-        setCurrentStep(2);
+        setCurrentStep(2); // Waiting -> Creating Answer
       } catch (err) {
         if (!cancelled) setError("Error while waiting for peer offer");
       }
     };
 
     run();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [sessionId, currentStep, setCurrentStep, setError]);
 
-  // STEP 2: offer + offerCandidates ke saath sendAnswer
+  // STEP 2: Create Answer & Send
   useEffect(() => {
     if (!sessionId) return;
     if (currentStep !== 2) return;
@@ -74,72 +122,56 @@ export default function PairingStatusSenderSide() {
     const runAnswer = async () => {
       try {
         const session = sessionRef.current;
-        if (!session) {
-          setError("Session data missing for answer");
+        if (!session || !session.offer) {
+          setError("Session/Offer data missing");
           return;
         }
 
-        const offer = session.offer;
-        const offerCandidates = session.offerCandidates || [];
-
-        if (!offer) {
-          setError("Remote offer not found");
-          return;
-        }
-
+        // Yahan PC create hoga aur ondatachannel listener set hoga
         const pc = ensurePeerConnection();
         if (!pc) {
-          setError("Failed to create PeerConnection on sender side");
-          return;
+            setError("Failed to create PeerConnection");
+            return;
         }
 
-        try {
-          await sendAnswer(pc, sessionId, offer, offerCandidates);
-        } catch (err) {
-          console.error("sendAnswer error:", err);
-          setError(typeof err === "string" ? err : "Failed to create answer");
-          return;
-        }
+        // Answer bhejo
+        await sendAnswer(pc, sessionId, session.offer, session.offerCandidates || []);
 
         if (!cancelled) {
-          setCurrentStep(3); // Checking ICE / connected etc
+          // Answer bhej diya, ab bas connection ka wait hai
+          setCurrentStep(4); // Seedha Step 4 (Verifying Connection) pe bhej rahe hain
         }
       } catch (err) {
+        console.error(err);
         if (!cancelled) setError("Error while creating answer");
       }
     };
 
     runAnswer();
-
-    return () => {
-      cancelled = true;
-      // connection ko aage file transfer ke liye use kar rahe ho to yahan close mat karo
-      // if (pcRef.current) {
-      //   pcRef.current.close();
-      //   pcRef.current = null;
-      // }
-    };
-  }, [sessionId, currentStep, setCurrentStep, setError]);
+    return () => { cancelled = true; };
+  }, [sessionId, currentStep, setCurrentStep, setError, peerConnectionRef]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-lg mx-auto bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
         {/* Header */}
-        <div className="bg-slate-900 p-6 sm:p-8 text-white relative overflow:hidden">
+        <div className="bg-slate-900 p-6 sm:p-8 text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500 rounded-full blur-[60px] opacity-20 -mr-10 -mt-10" />
           <div className="relative z-10">
             <div className="flex items-center gap-3 mb-2">
               <span className="flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className={`absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 ${currentStep === 5 ? "" : "animate-ping"}`} />
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
               </span>
               <p className="text-xs font-bold uppercase text-emerald-400">
                 Sender Status
               </p>
             </div>
-            <h2 className="text-2xl font-bold">Creating Session</h2>
+            <h2 className="text-2xl font-bold">
+              {currentStep === 5 ? "Connected!" : "Creating Session"}
+            </h2>
             <p className="text-slate-400 text-sm mt-1">
-              Initializing secure channel for file transfer...
+              {currentStep === 5 ? "Secure channel established." : "Initializing secure channel..."}
             </p>
           </div>
         </div>
@@ -154,9 +186,11 @@ export default function PairingStatusSenderSide() {
 
           <div className="space-y-6 relative">
             {STEPS.map((step, index) => {
-              const isCompleted = index < currentStep;
-              const isActive = index === currentStep;
-              const isPending = index > currentStep;
+              // Adjust index logic because steps IDs are 1-based, array is 0-based
+              const stepIndex = step.id; 
+              const isCompleted = stepIndex < currentStep;
+              const isActive = stepIndex === currentStep;
+              const isPending = stepIndex > currentStep;
               const showError = isActive && !!error;
               const Icon = step.icon;
 
@@ -170,12 +204,12 @@ export default function PairingStatusSenderSide() {
                   <div
                     className={`relative z-10 flex-shrink-0 w-10 h-10 rounded-full flex justify-center items-center border-2 transition-all
                     ${
-                      isCompleted
+                      isCompleted || (isActive && step.id === 5) // Step 5 active means success
                         ? "bg-emerald-500 border-emerald-500 text-white shadow-md"
                         : ""
                     }
                     ${
-                      isActive && !showError
+                      isActive && !showError && step.id !== 5
                         ? "bg-white border-emerald-500 text-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.15)] scale-110"
                         : ""
                     }
@@ -186,7 +220,7 @@ export default function PairingStatusSenderSide() {
                     }
                     ${isPending ? "bg-white border-gray-200 text-gray-300" : ""}`}
                   >
-                    {isCompleted ? (
+                    {isCompleted || (isActive && step.id === 5) ? (
                       <Check className="w-5 h-5" />
                     ) : (
                       Icon && (
@@ -221,9 +255,15 @@ export default function PairingStatusSenderSide() {
                         {step.title}
                       </h3>
 
-                        {isActive && !error && (
+                        {isActive && !error && step.id !== 5 && (
                           <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full animate-pulse">
                             PROCESSING
+                          </span>
+                        )}
+                         {/* Step 5 Success Badge */}
+                         {isActive && step.id === 5 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-500 text-white rounded-full">
+                            SUCCESS
                           </span>
                         )}
                     </div>

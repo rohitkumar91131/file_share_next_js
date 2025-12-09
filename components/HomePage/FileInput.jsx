@@ -1,12 +1,21 @@
 "use client";
+
 import { useRef } from "react";
+import { useSendFileData } from "@/context/SendFileDataContext";
 
 export default function FileInput() {
   const inputRef = useRef(null);
+  const { addFiles } = useSendFileData();
 
   const pick = (e) => {
-    const files = Array.from(e.target.files || []);
-    console.log(files);
+    const fileList = e.target.files;
+    if (fileList && fileList.length > 0) {
+      const filesArray = Array.from(fileList);
+      addFiles(filesArray);
+    }
+    if (inputRef.current) {
+      inputRef.current.value = "";
+    }
   };
 
   return (
@@ -17,7 +26,7 @@ export default function FileInput() {
 
       <button
         onClick={() => inputRef.current?.click()}
-        className="w-full py-2 px-4 border rounded-lg text-sm font-medium active:scale-95"
+        className="w-full py-2 px-4 border rounded-lg text-sm font-medium active:scale-95 bg-white hover:bg-gray-50 transition-colors"
       >
         Select Files
       </button>

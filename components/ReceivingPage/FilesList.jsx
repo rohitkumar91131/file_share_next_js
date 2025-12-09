@@ -1,11 +1,13 @@
 "use client";
 
-export default function FilesList({ files }) {
+import { useReceiveFileData } from "@/context/ReceiveFileDataContext";
+
+export default function FilesList() {
+  const { files } = useReceiveFileData();
   const items = files || [];
 
   return (
     <div className="w-full max-w-4xl mx-auto mt-8 space-y-3">
-      
       <div className="hidden md:grid md:[grid-template-columns:2fr_1fr_1fr_1fr] text-sm font-medium text-gray-500 px-4">
         <span>Name</span>
         <span>Type</span>

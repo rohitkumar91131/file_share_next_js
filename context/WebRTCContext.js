@@ -8,10 +8,6 @@ export function WebRTCProvider({ children }) {
   const peerConnectionRef = useRef(null);
   const dataChannelRef = useRef(null);
 
-  const offerRef = useRef(null);
-  const answerRef = useRef(null);
-  const offerCandidatesRef = useRef([]);
-  const answerCandidatesRef = useRef([]);
 
   const createPeerConnection = useCallback(() => {
     if (peerConnectionRef.current) {
@@ -57,11 +53,7 @@ export function WebRTCProvider({ children }) {
         dataChannelRef,
         createPeerConnection,
 
-        // 🔹 expose signaling refs
-        offerRef,
-        answerRef,
-        offerCandidatesRef,
-        answerCandidatesRef,
+
       }}
     >
       {children}
