@@ -1,0 +1,67 @@
+
+> file_share_next_js@0.1.0 lint
+> eslint
+
+
+/home/rohit-kumar/Desktop/file_share_next_js/src/app/api/share/[id]/checkoffer/route.js
+  28:12  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/rohit-kumar/Desktop/file_share_next_js/src/components/features/receiver/Loading/PairingStatusReceiverSide.jsx
+  137:6  warning  React Hook useEffect has a missing dependency: 'currentStep'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/rohit-kumar/Desktop/file_share_next_js/src/components/features/sender/InputBox.jsx
+   4:28  warning  'useEffect' is defined but never used  @typescript-eslint/no-unused-vars
+  81:18  warning  'error' is defined but never used      @typescript-eslint/no-unused-vars
+
+/home/rohit-kumar/Desktop/file_share_next_js/src/components/features/sender/PairingLinkQrCode/PairingInterface.jsx
+  26:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  24 |
+  25 |     // Immediate update to prevent stale 0 state
+> 26 |     setRemainingMs(Math.max(0, linkExpiry - Date.now()));
+     |     ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  27 |
+  28 |     const t = setInterval(() => {
+  29 |       setRemainingMs(Math.max(0, linkExpiry - Date.now()));  react-hooks/set-state-in-effect
+
+/home/rohit-kumar/Desktop/file_share_next_js/src/components/features/sender/PairingLinkQrCode/ParingLinkQrCode.jsx
+  17:10  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/rohit-kumar/Desktop/file_share_next_js/src/components/features/sender/SenderView.jsx
+   2:17  warning  'useEffect' is defined but never used                @typescript-eslint/no-unused-vars
+   3:8   warning  'ShareLink' is defined but never used                @typescript-eslint/no-unused-vars
+   5:8   warning  'Pair' is defined but never used                     @typescript-eslint/no-unused-vars
+   6:8   warning  'EnterName' is defined but never used                @typescript-eslint/no-unused-vars
+   7:8   warning  'Loading' is defined but never used                  @typescript-eslint/no-unused-vars
+   8:8   warning  'FilesList' is defined but never used                @typescript-eslint/no-unused-vars
+   9:8   warning  'ReceivingFilesHeading' is defined but never used    @typescript-eslint/no-unused-vars
+  10:8   warning  'FilePicker' is defined but never used               @typescript-eslint/no-unused-vars
+  11:8   warning  'SelectedFiles' is defined but never used            @typescript-eslint/no-unused-vars
+  12:8   warning  'PairingStatusSenderSide' is defined but never used  @typescript-eslint/no-unused-vars
+  13:10  warning  'SendFileDataProvider' is defined but never used     @typescript-eslint/no-unused-vars
+  13:32  warning  'useSendFileData' is defined but never used          @typescript-eslint/no-unused-vars
+  15:8   warning  'QRCodeBox' is defined but never used                @typescript-eslint/no-unused-vars
+
+/home/rohit-kumar/Desktop/file_share_next_js/src/components/layout/Navbar.jsx
+  4:34  warning  'Sparkles' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/rohit-kumar/Desktop/file_share_next_js/src/context/ReceivingSideStatusContext.jsx
+  5:3  warning  'Check' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/rohit-kumar/Desktop/file_share_next_js/src/context/webrtc/WebRTCContext.js
+  3:37  warning  'useRef' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/rohit-kumar/Desktop/file_share_next_js/src/hooks/useSenderPairingLogic.js
+  54:16  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/rohit-kumar/Desktop/file_share_next_js/src/services/api.js
+  45:18  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 24 problems (1 error, 23 warnings)
+
