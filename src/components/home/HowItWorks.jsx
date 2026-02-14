@@ -1,6 +1,11 @@
 "use client";
-import React from "react";
+import React, { useRef } from "react";
 import { Copy, Wifi, Share } from "lucide-react";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+gsap.registerPlugin(ScrollTrigger);
 
 const steps = [
     {
@@ -24,10 +29,41 @@ const steps = [
 ];
 
 export default function HowItWorks() {
+    const containerRef = useRef(null);
+    const headerRef = useRef(null);
+    const lineRef = useRef(null);
+    const stepsRef = useRef(null);
+
+    useGSAP(() => {
+        const tl = gsap.timeline({
+            scrollTrigger: {
+                trigger: containerRef.current,
+                start: "top 75%",
+                toggleActions: "play none none reverse",
+            }
+        });
+
+        tl.fromTo(headerRef.current.children,
+            { y: 30, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.8, stagger: 0.2, ease: "power3.out" }
+        )
+            .fromTo(lineRef.current,
+                { scaleX: 0, transformOrigin: "left center" },
+                { scaleX: 1, duration: 1, ease: "power2.inOut" },
+                "-=0.4"
+            )
+            .fromTo(stepsRef.current.children,
+                { y: 50, opacity: 0, scale: 0.8 },
+                { y: 0, opacity: 1, scale: 1, duration: 0.6, stagger: 0.2, ease: "back.out(1.7)" },
+                "-=0.6"
+            );
+
+    }, { scope: containerRef });
+
     return (
-        <section id="how-it-works" className="py-24 bg-slate-50 dark:bg-black transition-colors">
+        <section ref={containerRef} id="how-it-works" className="py-24 bg-slate-50 dark:bg-black transition-colors overflow-hidden">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="text-center mb-16">
+                <div ref={headerRef} className="text-center mb-16 opacity-0">
                     <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4">
                         How It Works
                     </h2>
@@ -36,13 +72,13 @@ export default function HowItWorks() {
                     </p>
                 </div>
 
-                <div className="relative grid grid-cols-1 md:grid-cols-3 gap-12">
+                <div ref={stepsRef} className="relative grid grid-cols-1 md:grid-cols-3 gap-12">
                     {/* Connector Line (Desktop) */}
-                    <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-0.5 bg-slate-200 dark:bg-slate-800 -z-10"></div>
+                    <div ref={lineRef} className="hidden md:block absolute top-12 left-[16%] right-[16%] h-0.5 bg-slate-200 dark:bg-slate-800 -z-10 bg-gradient-to-r from-transparent via-blue-500/20 to-transparent"></div>
 
                     {steps.map((s, i) => (
-                        <div key={i} className="relative flex flex-col items-center text-center group">
-                            <div className="w-24 h-24 bg-white dark:bg-slate-900 border-4 border-white dark:border-slate-800 shadow-lg rounded-full flex items-center justify-center mb-6 z-10 transition-transform group-hover:scale-110">
+                        <div key={i} className="relative flex flex-col items-center text-center group opacity-0">
+                            <div className="w-24 h-24 bg-white dark:bg-slate-900 border-4 border-white dark:border-slate-800 shadow-lg rounded-full flex items-center justify-center mb-6 z-10 transition-transform group-hover:scale-110 group-hover:bg-blue-50 dark:group-hover:bg-slate-800 duration-300">
                                 {s.icon}
                             </div>
                             <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">{s.title}</h3>

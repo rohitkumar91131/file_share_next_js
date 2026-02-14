@@ -3,10 +3,24 @@ import Image from "next/image";
 import Link from "next/link";
 import { Shield, CreditCard } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { useRef } from "react";
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
 
 export default function Navbar() {
+  const navRef = useRef(null);
+
+  useGSAP(() => {
+    gsap.from(navRef.current, {
+      y: -100,
+      opacity: 0,
+      duration: 1,
+      ease: "power3.out"
+    });
+  }, { scope: navRef });
+
   return (
-    <nav className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl transition-all">
+    <nav ref={navRef} className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
 

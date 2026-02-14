@@ -28,8 +28,8 @@ export default function Footer() {
                 </div>
 
                 <div className="flex gap-6 text-slate-600 dark:text-slate-400 font-medium text-sm">
-                    <a href="#" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Github</a>
-                    <a href="#" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Privacy</a>
+                    <a href="https://github.com/rohitkumar91131/file_share_next_js" target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Github</a>
+                    <Link href="/privacy" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Privacy</Link>
                     <a href="#" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Twitter</a>
                 </div>
             </div>

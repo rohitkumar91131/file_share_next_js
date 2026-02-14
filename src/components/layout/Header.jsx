@@ -1,13 +1,44 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image"; // Import Image
 import { Menu, X } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle"; // Import ThemeToggle
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
 
 export default function Header() {
     const [isOpen, setIsOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
+    const headerRef = useRef(null);
+    const logoRef = useRef(null);
+    const navRef = useRef(null);
+    const mobileMenuBtnRef = useRef(null);
+
+    useGSAP(() => {
+        const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+
+        tl.fromTo(headerRef.current,
+            { y: -100, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.8 }
+        )
+            .fromTo(logoRef.current,
+                { x: -20, opacity: 0 },
+                { x: 0, opacity: 1, duration: 0.5 },
+                "-=0.4"
+            )
+            .fromTo(navRef.current.children,
+                { y: -10, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.5, stagger: 0.1 },
+                "-=0.3"
+            )
+            .fromTo(mobileMenuBtnRef.current,
+                { scale: 0, opacity: 0 },
+                { scale: 1, opacity: 1, duration: 0.5 },
+                "<"
+            );
+
+    }, { scope: headerRef });
 
     // Add scroll effect for header
     useEffect(() => {
@@ -20,6 +51,7 @@ export default function Header() {
 
     return (
         <header
+            ref={headerRef}
             className={`fixed top-0 w-full z-50 transition-all duration-300 ${scrolled
                 ? "bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-sm"
                 : "bg-transparent border-b border-transparent"
@@ -28,7 +60,7 @@ export default function Header() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center h-20">
                     {/* Logo */}
-                    <Link href="/" className="flex-shrink-0 flex items-center gap-3 cursor-pointer group">
+                    <Link href="/" className="flex-shrink-0 flex items-center gap-3 cursor-pointer group" ref={logoRef}>
                         <div className="relative w-10 h-10 transition-transform group-hover:scale-105">
                             <Image
                                 src="/logo.png"
@@ -44,7 +76,7 @@ export default function Header() {
                     </Link>
 
                     {/* Desktop Nav */}
-                    <nav className="hidden md:flex items-center space-x-8">
+                    <nav ref={navRef} className="hidden md:flex items-center space-x-8">
                         {["Features", "How it Works", "Benefits"].map((item) => (
                             <a
                                 key={item}
@@ -67,7 +99,7 @@ export default function Header() {
                     </nav>
 
                     {/* Mobile Menu Button */}
-                    <div className="md:hidden flex items-center gap-4">
+                    <div ref={mobileMenuBtnRef} className="md:hidden flex items-center gap-4">
                         <ThemeToggle />
                         <button
                             onClick={() => setIsOpen(!isOpen)}
