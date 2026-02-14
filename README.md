@@ -1,36 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FileShare - Secure P2P File Sharing
 
-## Getting Started
+![FileShare Banner](/public/logo.png)
 
-First, run the development server:
+**FileShare** is a modern, secure, and lightning-fast peer-to-peer (P2P) file sharing application. It enables users to share files of any size directly between devices without storing them on any server. Built with privacy and performance in mind, FileShare leverages WebRTC for direct data transfer.
+
+## 🚀 Key Features
+
+-   **Peer-to-Peer Transfer**: Files are streamed directly from sender to receiver using WebRTC. No intermediate server storage.
+-   **No File Size Limits**: Share files of any size, limited only by your device's capabilities.
+-   **End-to-End Encryption**: Data is encrypted in transit by WebRTC standards.
+-   **No Sign-up Required**: Start sharing immediately without creating an account.
+-   **Cross-Platform**: Works on any device with a modern web browser (Mobile, Desktop, Tablet).
+-   **Premium UI/UX**:
+    -   **GSAP Animations**: Fluid, engaging entrance and scroll animations.
+    -   **Dark/Light Mode**: Fully supported system-aware theming.
+    -   **Responsive Design**: Optimized for all screen sizes.
+
+## 🛠️ Tech Stack
+
+-   **Frontend**: [Next.js 15](https://nextjs.org/) (App Router), [React 19](https://react.dev/)
+-   **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+-   **Animations**: [GSAP](https://gsap.com/) (GreenSock Animation Platform)
+-   **Icons**: [Lucide React](https://lucide.dev/)
+-   **Real-time Logic**: [Socket.io](https://socket.io/) (for signaling) & WebRTC (for data transfer)
+-   **State Management**: React Context API & Hooks
+
+## 🏁 Getting Started
+
+Follow these steps to set up the project locally on your machine.
+
+### Prerequisites
+
+-   **Node.js**: Version 18.17.0 or higher.
+-   **npm** or **yarn**: Package manager.
+
+### Installation
+
+1.  **Clone the repository:**
+
+    ```bash
+    git clone https://github.com/rohitkumar91131/file_share_next_js.git
+    cd file_share_next_js
+    ```
+
+2.  **Install dependencies:**
+
+    ```bash
+    npm install
+    # or
+    yarn install
+    ```
+
+3.  **Run the development server:**
+
+    ```bash
+    npm run dev
+    ```
+
+4.  **Open your browser:**
+    Navigate to [http://localhost:3000](http://localhost:3000) to see the app running.
+
+## 📂 Project Structure
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+src/
+├── app/                # Next.js App Router pages
+│   ├── layout.jsx      # Root layout
+│   ├── page.jsx        # Homepage with animations
+│   ├── share/          # Share page (Sender view)
+│   ├── download/       # Receiver view (dynamic route)
+│   └── privacy/        # Privacy Policy page
+├── components/         # React components
+│   ├── home/           # Homepage sections (Hero, Features, etc.)
+│   ├── layout/         # Layout components (Header, Footer)
+│   ├── features/       # Core feature components (Sender, Receiver)
+│   └── shared/         # Reusable UI components
+├── context/            # React Context (WebRTC, Socket)
+├── hooks/              # Custom React hooks
+└── lib/                # Utility functions
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🤝 How It Works
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1.  **Sender** opens the app and selects files.
+2.  A unique link and QR code are generated.
+3.  **Receiver** scans the QR code or opens the link.
+4.  A WebRTC connection is established via a signaling server (Socket.io).
+5.  Files are transferred directly between peers.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🛡️ Privacy & Security
 
-## Learn More
+-   **Ephemeral Signaling**: Connection metadata is only used to establish the handshake and is not stored.
+-   **No Data Retention**: Since files go peer-to-peer, we never host or view your files.
 
-To learn more about Next.js, take a look at the following resources:
+## 🤝 Contributing
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1.  Fork the project.
+2.  Create your feature branch (`git checkout -b feature/AmazingFeature`).
+3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
+4.  Push to the branch (`git push origin feature/AmazingFeature`).
+5.  Open a Pull Request.
 
-## Deploy on Vercel
+## 📄 License
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project is open source and available under the [MIT License](LICENSE).
