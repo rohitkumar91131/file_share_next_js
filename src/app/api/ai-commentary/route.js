@@ -1,98 +1,90 @@
-// Commentary templates per mode.
-// Each template receives a `ctx` object with live app state and returns a string.
+import Groq from "groq-sdk";
 
-const TEMPLATES = {
-  professional: (ctx) => {
-    if (!ctx.connected) {
-      return "The peer-to-peer session is currently in an unestablished state. Awaiting successful WebRTC handshake to initiate data channel operations.";
-    }
-    const speed = ctx.downloadSpeed > 0 ? ctx.downloadSpeed : ctx.uploadSpeed;
-    const speedStr = speed > 0 ? ` at a throughput of ${speed.toFixed(2)} MB/s` : "";
-    const filesStr =
-      ctx.totalFiles > 0
-        ? ` A total of ${ctx.totalFiles} asset(s) have been processed.`
-        : " No file assets have been exchanged at this time.";
-    return `The ${ctx.connectionType === "lan" ? "local area network" : ctx.connectionType === "wifi" ? "Wi-Fi" : "wide area network"} peer connection is fully operational${speedStr}.${filesStr} System performance metrics remain within acceptable parameters.`;
-  },
+// Per-mode system prompts that shape how the AI narrates the file-transfer session.
+const SYSTEM_PROMPTS = {
+  professional:
+    "You are a senior technical commentator providing precise, professional analysis of a WebRTC peer-to-peer file transfer session. Use formal language, accurate technical terminology, and concise sentences. Keep the commentary to 2-3 sentences.",
 
-  casual: (ctx) => {
-    if (!ctx.connected) {
-      return "Hey, waiting for the other person to connect! Hang tight, it'll happen soon 😄";
-    }
-    const speed = ctx.downloadSpeed > 0 ? ctx.downloadSpeed : ctx.uploadSpeed;
-    const speedStr = speed > 0 ? ` at like ${speed.toFixed(1)} MB/s` : "";
-    const filesStr =
-      ctx.totalFiles > 0
-        ? ` Already sent ${ctx.totalFiles} file(s), not bad!`
-        : " Nothing's been shared yet, go ahead and drop some files!";
-    return `Yeah yeah, we're connected over ${ctx.connectionType === "lan" ? "the same network" : ctx.connectionType === "wifi" ? "Wi-Fi" : "the internet"}${speedStr}! 🎉${filesStr} Pretty smooth, right?`;
-  },
+  casual:
+    "You are a friendly buddy giving a relaxed, upbeat play-by-play of someone's file transfer. Be warm, conversational, and encouraging. Use simple language and a couple of relevant emojis. Keep it to 2-3 sentences.",
 
-  roast: (ctx) => {
-    if (!ctx.connected) {
-      return "Wow, still not connected? Even a carrier pigeon would've arrived by now. Maybe try turning it off and on again? 🐦";
-    }
-    const speed = ctx.downloadSpeed > 0 ? ctx.downloadSpeed : ctx.uploadSpeed;
-    if (speed > 0 && speed < 1) {
-      return `${speed.toFixed(2)} MB/s?! My grandma's dial-up modem is calling — it wants its speed back. At this rate you'll finish transferring by next century. 🐢`;
-    }
-    if (ctx.totalFiles === 0) {
-      return "Connected and doing absolutely nothing. Classic. You set up this whole P2P connection just to stare at the screen? Impressive dedication to wasting technology. 🙄";
-    }
-    return `Oh look at you, ${ctx.totalFiles} file(s) transferred like a big shot. Hope none of them were your 47 copies of the same blurry photo. 📸`;
-  },
+  roast:
+    "You are a sharp-tongued comedian roasting someone's file transfer session. Be brutally funny, throw shade at their speed, file choices, or lack thereof — but keep it light-hearted. Max 2-3 sentences, include at least one emoji.",
 
-  sarcasm: (ctx) => {
-    if (!ctx.connected) {
-      return "Oh sure, just keep waiting. I'm sure the connection will establish itself any second now. It's not like you could have just used a USB drive or something. 🙃";
-    }
-    const speed = ctx.downloadSpeed > 0 ? ctx.downloadSpeed : ctx.uploadSpeed;
-    const speedStr = speed > 0 ? ` Oh wow, ${speed.toFixed(2)} MB/s. Absolutely revolutionary.` : "";
-    return `Wow, a peer-to-peer file transfer. How incredibly cutting-edge.${speedStr} I'm sure inventing the internet was totally worth it for this moment. ${ctx.totalFiles > 0 ? `${ctx.totalFiles} files. Amazing achievement, truly.` : "And you haven't even sent anything yet. Peak efficiency."} 👏`;
-  },
+  sarcasm:
+    "You are dripping with sarcasm. Comment on the file transfer session as if it is the most underwhelming thing you have ever witnessed. Every sentence should ooze passive-aggressive disbelief. 2-3 sentences with emojis.",
 
-  cricket: (ctx) => {
-    if (!ctx.connected) {
-      return "And the players are still in the dressing room, folks! The pitch is being prepared — we're awaiting the big connection. The crowd is restless! 🏏";
-    }
-    const speed = ctx.downloadSpeed > 0 ? ctx.downloadSpeed : ctx.uploadSpeed;
-    const speedStr =
-      speed > 0
-        ? speed > 5
-          ? `It's flying at ${speed.toFixed(1)} MB/s — SIX! Over the boundary!`
-          : speed > 2
-          ? `A solid ${speed.toFixed(1)} MB/s — that's a safe two runs!`
-          : `A careful ${speed.toFixed(1)} MB/s — he's playing it defensively.`
-        : "The batsman is taking a moment to assess the field.";
-    return `AND HE'S CONNECTED! The stadium erupts! ${speedStr} ${ctx.totalFiles > 0 ? `${ctx.totalFiles} file(s) transferred — each one a boundary! What a performance!` : "No files yet but the partnership looks strong!"} Magnificent display from both ends, Ravi! 🏏🎙️`;
-  },
+  cricket:
+    "You are an enthusiastic Indian cricket match commentator (think Ravi Shastri meets Harsha Bhogle) who has been asked to commentate on a file transfer instead of a cricket match. Use cricket metaphors — boundaries, wickets, run rate — to describe transfer speed and file count. End with a dramatic exclamation. 2-3 sentences.",
 
-  epic: (ctx) => {
-    if (!ctx.connected) {
-      return "In the vast digital darkness, two machines reach out across the void… waiting… searching… for that one fateful moment of connection. The universe holds its breath. 🌌";
-    }
-    const speed = ctx.downloadSpeed > 0 ? ctx.downloadSpeed : ctx.uploadSpeed;
-    const speedStr =
-      speed > 0
-        ? `At ${speed.toFixed(2)} MB/s, data surges like a river unleashed from ancient glaciers. `
-        : "";
-    return `Against all odds, the connection held. ${speedStr}Packets brave the treacherous seas of the internet, carrying their precious cargo to distant shores. ${ctx.totalFiles > 0 ? `${ctx.totalFiles} file(s) — each a story, each a small piece of someone's digital soul — now safely delivered.` : "The channel stands ready, awaiting the first brave file to begin its heroic journey."} This… is file sharing. ⚡🌊`;
-  },
+  epic:
+    "You are a cinematic narrator in the style of an epic movie trailer voice-over. Describe the file transfer as if it is a world-saving mission. Use grandiose, poetic language with dramatic pauses (use '…'). 2-3 sentences.",
 
-  news: (ctx) => {
-    const now = ctx.clientTime || new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-    if (!ctx.connected) {
-      return `BREAKING: ${now} IST — Sources confirm that a peer-to-peer connection is being attempted. Live coverage continues as we await developments. Our correspondent on the ground reports no files have been exchanged. Stay with us for minute-by-minute updates. 📺`;
-    }
-    const speed = ctx.downloadSpeed > 0 ? ctx.downloadSpeed : ctx.uploadSpeed;
-    const speedStr = speed > 0 ? ` Experts confirm transfer speeds of ${speed.toFixed(2)} MB/s.` : "";
-    return `BREAKING NEWS ${now} IST — A ${ctx.connectionType === "lan" ? "local network" : ctx.connectionType === "wifi" ? "Wi-Fi" : "remote internet"} peer connection has been SUCCESSFULLY ESTABLISHED.${speedStr} ${ctx.totalFiles > 0 ? `${ctx.totalFiles} file(s) have been confirmed transferred, officials say.` : "No files have been exchanged yet, but authorities assure the situation is under control."} More updates as the story develops. 📢`;
-  },
+  news:
+    "You are a breathless breaking-news anchor reporting LIVE on a file transfer session as if it is the most important news story of the decade. Use 'BREAKING', dramatic pauses, and quote imaginary 'officials' or 'experts'. Include the provided local time in the bulletin. 2-3 sentences.",
 };
+
+// Build a concise natural-language description of the current session state
+// that the LLM uses as factual grounding for its commentary.
+function buildSituationSummary(ctx) {
+  const lines = [];
+
+  lines.push(`Connection status: ${ctx.connected ? "CONNECTED" : "NOT connected — waiting for peer"}`);
+
+  if (ctx.connected) {
+    const connLabel =
+      ctx.connectionType === "lan"
+        ? "local area network (LAN)"
+        : ctx.connectionType === "wifi"
+        ? "Wi-Fi"
+        : ctx.connectionType === "wan"
+        ? "internet (WAN)"
+        : "unknown network type";
+    lines.push(`Connection type: ${connLabel}`);
+
+    if (ctx.downloadSpeed > 0) lines.push(`Download speed: ${ctx.downloadSpeed.toFixed(2)} MB/s`);
+    if (ctx.uploadSpeed > 0)   lines.push(`Upload speed: ${ctx.uploadSpeed.toFixed(2)} MB/s`);
+    if (ctx.downloadSpeed === 0 && ctx.uploadSpeed === 0) lines.push("Transfer speed: idle (no active transfer right now)");
+  }
+
+  if (ctx.totalFiles > 0) {
+    lines.push(`Total files in session: ${ctx.totalFiles}`);
+    if (ctx.fileNames.length > 0) {
+      const shown = ctx.fileNames.slice(0, 5).join(", ");
+      const extra = ctx.fileNames.length > 5 ? ` … and ${ctx.fileNames.length - 5} more` : "";
+      lines.push(`File names: ${shown}${extra}`);
+    }
+  } else {
+    lines.push("No files have been transferred yet.");
+  }
+
+  if (ctx.clientTime) lines.push(`Local time: ${ctx.clientTime}`);
+
+  return lines.join("\n");
+}
 
 export async function POST(request) {
   const body = await request.json();
-  const { mode = "casual", connectionState, connectionType, downloadSpeed, uploadSpeed, totalFiles, fileNames, clientTime } = body;
+  const {
+    mode = "casual",
+    connectionState,
+    connectionType,
+    downloadSpeed,
+    uploadSpeed,
+    totalFiles,
+    fileNames,
+    clientTime,
+  } = body;
+
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    return new Response(
+      JSON.stringify({
+        error: "GROQ_API_KEY is not configured. Add it to .env.local to enable AI commentary.",
+      }),
+      { status: 503, headers: { "Content-Type": "application/json" } }
+    );
+  }
 
   const ctx = {
     connected: connectionState === "connected",
@@ -100,12 +92,28 @@ export async function POST(request) {
     downloadSpeed: Number(downloadSpeed) || 0,
     uploadSpeed: Number(uploadSpeed) || 0,
     totalFiles: Number(totalFiles) || 0,
-    fileNames: fileNames || [],
+    fileNames: Array.isArray(fileNames) ? fileNames : [],
     clientTime: typeof clientTime === "string" ? clientTime : null,
   };
 
-  const generator = TEMPLATES[mode] || TEMPLATES.casual;
-  const text = generator(ctx);
+  const systemPrompt = SYSTEM_PROMPTS[mode] || SYSTEM_PROMPTS.casual;
+  const situationSummary = buildSituationSummary(ctx);
+
+  const userMessage = `Here is the current state of the file-sharing session:\n\n${situationSummary}\n\nGenerate commentary for this situation.`;
+
+  const groq = new Groq({ apiKey });
+
+  const completion = await groq.chat.completions.create({
+    model: "llama-3.3-70b-versatile",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user",   content: userMessage },
+    ],
+    temperature: 0.9,
+    max_tokens: 200,
+  });
+
+  const text = completion.choices?.[0]?.message?.content?.trim() ?? "No commentary generated.";
 
   return new Response(JSON.stringify({ text }), {
     status: 200,

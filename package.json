@@ -12,6 +12,7 @@
     "@gsap/react": "^2.1.2",
     "@saltyrtc/chunked-dc": "^2.0.1",
     "framer-motion": "^12.23.26",
+    "groq-sdk": "^1.1.2",
     "gsap": "^3.14.2",
     "lottie-react": "^2.4.1",
     "lucide-react": "^0.556.0",
