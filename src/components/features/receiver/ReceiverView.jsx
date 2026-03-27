@@ -4,6 +4,9 @@ import Navbar from '@/components/layout/Navbar';
 import PairingStatusReceiverSide from './Loading/PairingStatusReceiverSide';
 import FilesList from './FilesList';
 import FileReceiver from './FileReceiver';
+import InputBox from '@/components/features/sender/InputBox';
+import ChatBox from '@/components/features/chat/ChatBox';
+import AiCommentary from '@/components/features/commentary/AiCommentary';
 import ConnectedStatus from '@/components/shared/ConnectedStatus';
 import SpeedStats from '@/components/shared/SpeedStats';
 import { useReceivingStatus } from '@/context/ReceivingSideStatusContext';
@@ -13,6 +16,7 @@ import gsap from 'gsap';
 export default function ReceiverView() {
   const { currentStep } = useReceivingStatus();
   const { downloadSpeed } = useReceiveFileData();
+  const [uploadSpeed, setUploadSpeed] = useState(0);
   const pairingStatusRef = useRef(null);
   const [showPairingStatus, setShowPairingStatus] = useState(true);
 
@@ -46,9 +50,16 @@ export default function ReceiverView() {
         {/* Headless file receiver - handles incoming data */}
         <FileReceiver />
 
+        {/* Floating chat panel */}
+        <ChatBox />
+
+        {/* Floating AI commentary panel */}
+        <AiCommentary uploadSpeed={uploadSpeed} />
+
         {/* Top Right Connected Status */}
         {!showPairingStatus && <ConnectedStatus />}
         {!showPairingStatus && <SpeedStats speed={downloadSpeed} type="download" />}
+        {!showPairingStatus && <SpeedStats speed={uploadSpeed} type="upload" topClass="top-52" />}
 
         {/* Pairing Status - Animates Out */}
         {showPairingStatus && (
@@ -61,6 +72,16 @@ export default function ReceiverView() {
         <div className="pb-12">
           <FilesList />
         </div>
+
+        {/* Send Files Section */}
+        {!showPairingStatus && (
+          <div className="max-w-6xl mx-auto px-4 pb-12">
+            <section className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 p-8">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Send Files</h2>
+              <InputBox onSpeedUpdate={setUploadSpeed} />
+            </section>
+          </div>
+        )}
       </div>
     </div>
   );
