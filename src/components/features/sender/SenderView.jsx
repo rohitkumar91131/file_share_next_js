@@ -8,6 +8,7 @@ import ConnectedStatus from '@/components/shared/ConnectedStatus';
 import SpeedStats from '@/components/shared/SpeedStats';
 import FileReceiver from '@/components/features/receiver/FileReceiver';
 import FilesList from '@/components/features/receiver/FilesList';
+import ChatBox from '@/components/features/chat/ChatBox';
 import { usePairingLinkLogic } from '@/hooks/usePairingLinkLogic';
 import { useSenderPairingLogic } from '@/hooks/useSenderPairingLogic';
 import { useWebRTCStore } from '@/context/webrtc/WebRTCContext';
@@ -104,6 +105,9 @@ export default function SenderView() {
 
       {/* Headless file receiver - handles incoming data from peer */}
       <FileReceiver />
+
+      {/* Floating chat panel */}
+      <ChatBox />
 
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
 

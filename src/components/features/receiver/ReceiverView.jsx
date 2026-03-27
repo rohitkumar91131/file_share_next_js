@@ -5,6 +5,7 @@ import PairingStatusReceiverSide from './Loading/PairingStatusReceiverSide';
 import FilesList from './FilesList';
 import FileReceiver from './FileReceiver';
 import InputBox from '@/components/features/sender/InputBox';
+import ChatBox from '@/components/features/chat/ChatBox';
 import ConnectedStatus from '@/components/shared/ConnectedStatus';
 import SpeedStats from '@/components/shared/SpeedStats';
 import { useReceivingStatus } from '@/context/ReceivingSideStatusContext';
@@ -47,6 +48,9 @@ export default function ReceiverView() {
 
         {/* Headless file receiver - handles incoming data */}
         <FileReceiver />
+
+        {/* Floating chat panel */}
+        <ChatBox />
 
         {/* Top Right Connected Status */}
         {!showPairingStatus && <ConnectedStatus />}

@@ -6,6 +6,7 @@ import { SenderStatusProvider } from "@/context/SenderSideStatusContext";
 import { SendFileDataProvider } from "@/context/SendFileDataContext";
 import { ReceiveFileDataProvider } from "@/context/ReceiveFileDataContext";
 import { PairingLinkProvider } from "@/context/PairingLinkContext";
+import { ChatProvider } from "@/context/ChatContext";
 
 import { ThemeProvider } from "@/components/theme-provider";
 
@@ -18,7 +19,9 @@ export function AppProviders({ children }) {
                         <ReceivingStatusProvider>
                             <SendFileDataProvider>
                                 <ReceiveFileDataProvider>
-                                    {children}
+                                    <ChatProvider>
+                                        {children}
+                                    </ChatProvider>
                                 </ReceiveFileDataProvider>
                             </SendFileDataProvider>
                         </ReceivingStatusProvider>
