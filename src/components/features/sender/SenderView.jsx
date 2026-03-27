@@ -6,9 +6,12 @@ import InputBox from './InputBox';
 import CurrentConnectionState from './ConnectionStatus/CurrentConnectionState';
 import ConnectedStatus from '@/components/shared/ConnectedStatus';
 import SpeedStats from '@/components/shared/SpeedStats';
+import FileReceiver from '@/components/features/receiver/FileReceiver';
+import FilesList from '@/components/features/receiver/FilesList';
 import { usePairingLinkLogic } from '@/hooks/usePairingLinkLogic';
 import { useSenderPairingLogic } from '@/hooks/useSenderPairingLogic';
 import { useWebRTCStore } from '@/context/webrtc/WebRTCContext';
+import { useReceiveFileData } from '@/context/ReceiveFileDataContext';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 
@@ -16,6 +19,7 @@ export default function SenderView() {
   usePairingLinkLogic();
   useSenderPairingLogic();
   const { connectionState } = useWebRTCStore();
+  const { downloadSpeed } = useReceiveFileData();
 
   const pairingSectionRef = useRef(null);
   const [showPairing, setShowPairing] = useState(true);
@@ -96,6 +100,10 @@ export default function SenderView() {
       {/* Top Right Connected Status */}
       {!showPairing && <ConnectedStatus />}
       {!showPairing && <SpeedStats speed={uploadSpeed} type="upload" />}
+      {!showPairing && <SpeedStats speed={downloadSpeed} type="download" topClass="top-52" />}
+
+      {/* Headless file receiver - handles incoming data from peer */}
+      <FileReceiver />
 
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
 
@@ -127,6 +135,12 @@ export default function SenderView() {
         <section className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 p-8">
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Send Files</h2>
           <InputBox onSpeedUpdate={setUploadSpeed} />
+        </section>
+
+        {/* Received Files Section */}
+        <section className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 p-8">
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Received Files</h2>
+          <FilesList />
         </section>
       </div>
     </div>

@@ -3,7 +3,7 @@ import React, { useRef, useEffect } from 'react';
 import { ArrowUp, ArrowDown, Activity } from 'lucide-react';
 import gsap from 'gsap';
 
-export default function SpeedStats({ speed, type = 'upload' }) {
+export default function SpeedStats({ speed, type = 'upload', topClass = 'top-36' }) {
     const containerRef = useRef(null);
     const textRef = useRef(null);
 
@@ -34,7 +34,7 @@ export default function SpeedStats({ speed, type = 'upload' }) {
     return (
         <div
             ref={containerRef}
-            className="fixed top-36 right-4 z-40 flex items-center gap-3 px-4 py-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg opacity-0 translate-y-[-10px]"
+            className={`fixed ${topClass} right-4 z-40 flex items-center gap-3 px-4 py-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg opacity-0 translate-y-[-10px]`}
         >
             <div className={`p-2 rounded-full ${type === 'upload' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
                 {type === 'upload' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
