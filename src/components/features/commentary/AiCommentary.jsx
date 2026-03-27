@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Mic, X, Sparkles, Play, Loader2, Volume2, VolumeX, Radio } from "lucide-react";
 import { useWebRTCStore } from "@/context/webrtc/WebRTCContext";
 import { useReceiveFileData } from "@/context/ReceiveFileDataContext";
@@ -11,37 +11,42 @@ const MODES = [
   { id: "casual",       label: "Casual",       emoji: "😎", description: "Chill and relaxed" },
   { id: "roast",        label: "Roast",        emoji: "🔥", description: "Burns & savage takes" },
   { id: "sarcasm",      label: "Sarcasm",      emoji: "😏", description: "Eye-rolling wit" },
-  { id: "cricket",      label: "Cricket",      emoji: "🏏", description: "Live match commentary" },
+  { id: "cricket",      label: "Cricket",      emoji: "🏏", description: "Live IPL commentary" },
   { id: "epic",         label: "Epic",         emoji: "🌌", description: "Cinematic narrator" },
   { id: "news",         label: "News",         emoji: "📺", description: "Breaking news bulletin" },
 ];
 
-// Sarvam AI speakers and their paces per mode
-const SPEAKER_SETTINGS = {
-  professional: { speaker: "meera",  pace: 0.9  },
-  casual:       { speaker: "arvind", pace: 1.1  },
-  roast:        { speaker: "arvind", pace: 1.15 },
-  sarcasm:      { speaker: "meera",  pace: 0.95 },
-  cricket:      { speaker: "arvind", pace: 1.3  },
-  epic:         { speaker: "meera",  pace: 0.8  },
-  news:         { speaker: "meera",  pace: 1.0  },
+// Web Speech API voice settings per mode (rate + pitch)
+const VOICE_SETTINGS = {
+  professional: { rate: 0.95, pitch: 0.9  },
+  casual:       { rate: 1.05, pitch: 1.0  },
+  roast:        { rate: 1.1,  pitch: 1.05 },
+  sarcasm:      { rate: 0.9,  pitch: 0.85 },
+  cricket:      { rate: 1.25, pitch: 1.1  },
+  epic:         { rate: 0.82, pitch: 0.75 },
+  news:         { rate: 1.05, pitch: 1.0  },
 };
 
-/** Start pre-fetching the next live segment this many seconds before the current one ends */
-const PREFETCH_BEFORE_END_SECS = 3;
+/** At this fraction of text read, start fetching the next live segment */
+const PREFETCH_AT_PROGRESS = 0.65;
 
-/** Rotation interval (ms) for text-only live mode when no Sarvam key is present */
+/** Fallback prefetch timer (ms) — triggered if onboundary is unreliable in this browser */
+const PREFETCH_FALLBACK_DELAY_MS = 8000;
+
+/** Rotation interval (ms) when Web Speech API is unavailable (text-only fallback) */
 const TEXT_ONLY_INTERVAL_MS = 15000;
 
-/** Retry delay (ms) before advancing after an audio playback error */
+/** Retry delay (ms) before advancing after a speech error */
 const AUDIO_ERROR_RETRY_DELAY_MS = 1500;
+
+/** Heartbeat interval (ms) to keep Chrome's speech synthesis from auto-pausing */
+const CHROME_SYNTHESIS_KEEPALIVE_MS = 14000;
 
 export default function AiCommentary({ uploadSpeed = 0 }) {
   const [isOpen, setIsOpen]             = useState(false);
   const [selectedMode, setSelectedMode] = useState("casual");
   const [commentary, setCommentary]     = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [isPlaying, setIsPlaying]       = useState(false);
   const [audioError, setAudioError]     = useState("");
   const [genError, setGenError]         = useState("");
@@ -50,11 +55,13 @@ export default function AiCommentary({ uploadSpeed = 0 }) {
   const [liveStatus, setLiveStatus] = useState(""); // "fetching" | "playing"
   const [liveError, setLiveError]   = useState("");
 
-  const audioRef           = useRef(null);
+  const utteranceRef       = useRef(null);
   const textOnlyTimerRef   = useRef(null);
+  const speechResumeRef    = useRef(null);  // heartbeat keeps Chrome from pausing synthesis
+  const prefetchTimerRef   = useRef(null);  // fallback prefetch timer
   // Live-loop control refs — readable from any async callback without stale-closure risk
   const isLiveRef          = useRef(false);
-  const nextSegmentRef     = useRef(null);   // { text, url } — pre-fetched next segment
+  const nextTextRef        = useRef(null);  // pre-fetched next commentary text
   const prefetchingRef     = useRef(false);
   const prefetchPromiseRef = useRef(null);
   // Always-fresh pointers updated on every render
@@ -82,6 +89,12 @@ export default function AiCommentary({ uploadSpeed = 0 }) {
   buildContextRef.current = buildContext;
   selectedModeRef.current = selectedMode;
 
+  // Stop all speech on unmount
+  useEffect(() => {
+    return () => stopAudio();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Shared helpers ────────────────────────────────────────────────────────
 
   const fetchCommentaryText = async (mode, ctx) => {
@@ -95,33 +108,85 @@ export default function AiCommentary({ uploadSpeed = 0 }) {
     return data.text;
   };
 
-  const fetchTTSUrl = async (text, mode) => {
-    const settings = SPEAKER_SETTINGS[mode] || { speaker: "meera", pace: 1.0 };
-    const res = await fetch("/api/ai-tts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, ...settings }),
-    });
-    const data = await res.json();
-    if (!res.ok) return null; // TTS unavailable — caller falls back to text-only
-    const binary = atob(data.audio);
-    const bytes  = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
+  const clearSpeechResumeTimer = () => {
+    if (speechResumeRef.current) {
+      clearInterval(speechResumeRef.current);
+      speechResumeRef.current = null;
+    }
+  };
+
+  /**
+   * Speak text using the browser's built-in Web Speech API (no API key required).
+   * Returns false if the API is unavailable in this environment.
+   * onProgress — called when ~65% of the text has been spoken
+   * onEnd      — called when speech finishes naturally
+   * onError    — called on unexpected errors (not on intentional cancel)
+   */
+  const speakText = (text, mode, { onProgress, onEnd, onError } = {}) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return false;
+
+    // Cancel any in-progress speech before starting a new one
+    window.speechSynthesis.cancel();
+
+    const settings  = VOICE_SETTINGS[mode] || { rate: 1.0, pitch: 1.0 };
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate  = settings.rate;
+    utterance.pitch = settings.pitch;
+
+    // Prefer en-IN, then en-GB (great for cricket commentary), then any English
+    const voices = window.speechSynthesis.getVoices();
+    const voice  =
+      voices.find((v) => v.lang === "en-IN") ||
+      voices.find((v) => v.lang === "en-GB") ||
+      voices.find((v) => v.lang.startsWith("en")) ||
+      null;
+    if (voice) utterance.voice = voice;
+
+    let progressFired = false;
+    utterance.onboundary = (event) => {
+      if (!progressFired && onProgress && text.length > 0) {
+        if (event.charIndex / text.length >= PREFETCH_AT_PROGRESS) {
+          progressFired = true;
+          onProgress();
+        }
+      }
+    };
+
+    utterance.onend = () => {
+      clearSpeechResumeTimer();
+      if (onEnd) onEnd();
+    };
+
+    utterance.onerror = (e) => {
+      // "interrupted" fires when we intentionally call cancel() — not a real error
+      if (e.error === "interrupted") return;
+      clearSpeechResumeTimer();
+      if (onError) onError();
+    };
+
+    utteranceRef.current = utterance;
+    window.speechSynthesis.speak(utterance);
+
+    // Heartbeat: Chrome pauses synthesis after ~15 s; keep it alive with pause/resume
+    clearSpeechResumeTimer();
+    speechResumeRef.current = setInterval(() => {
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+      }
+    }, CHROME_SYNTHESIS_KEEPALIVE_MS);
+
+    return true;
   };
 
   // ── Single-shot mode ──────────────────────────────────────────────────────
 
   const stopAudio = () => {
-    if (textOnlyTimerRef.current) {
-      clearTimeout(textOnlyTimerRef.current);
-      textOnlyTimerRef.current = null;
-    }
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = "";
-      audioRef.current = null;
-    }
+    clearSpeechResumeTimer();
+    if (prefetchTimerRef.current)  { clearTimeout(prefetchTimerRef.current);  prefetchTimerRef.current  = null; }
+    if (textOnlyTimerRef.current)  { clearTimeout(textOnlyTimerRef.current);  textOnlyTimerRef.current  = null; }
+    if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
+    utteranceRef.current = null;
     setIsPlaying(false);
   };
 
@@ -141,50 +206,36 @@ export default function AiCommentary({ uploadSpeed = 0 }) {
     }
   };
 
-  const playCommentary = async () => {
+  const playCommentary = () => {
     if (!commentary) return;
     if (isPlaying) { stopAudio(); return; }
-    setIsLoadingAudio(true);
     setAudioError("");
-    try {
-      const url = await fetchTTSUrl(commentary, selectedMode);
-      if (!url) {
-        setAudioError("🔑 Add SARVAM_API_KEY to your .env.local to enable voice");
-        return;
-      }
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.onended = () => { setIsPlaying(false); URL.revokeObjectURL(url); };
-      audio.onerror = () => { setIsPlaying(false); setAudioError("Playback error"); };
-      audio.play();
-      setIsPlaying(true);
-    } catch (e) {
-      setAudioError(e.message);
-    } finally {
-      setIsLoadingAudio(false);
+    const ok = speakText(commentary, selectedMode, {
+      onEnd:   () => setIsPlaying(false),
+      onError: () => { setIsPlaying(false); setAudioError("Speech synthesis failed. Check browser permissions."); },
+    });
+    if (!ok) {
+      setAudioError("Web Speech API is not supported in this browser.");
+      return;
     }
+    setIsPlaying(true);
   };
 
   // ── Live commentary ───────────────────────────────────────────────────────
 
   /**
-   * Silently pre-fetch the next live segment in the background.
-   * Called ~PREFETCH_BEFORE_END_SECS seconds before the current audio ends.
+   * Silently pre-fetch the next commentary text in the background.
+   * Only the Groq call is needed — speech synthesis happens client-side.
    */
   const triggerPrefetch = () => {
-    if (prefetchingRef.current || nextSegmentRef.current) return;
+    if (prefetchingRef.current || nextTextRef.current) return;
     prefetchingRef.current = true;
     const mode = selectedModeRef.current;
     const ctx  = buildContextRef.current();
     prefetchPromiseRef.current = (async () => {
       try {
         const text = await fetchCommentaryText(mode, ctx);
-        const url  = await fetchTTSUrl(text, mode);
-        if (isLiveRef.current) {
-          nextSegmentRef.current = { text, url };
-        } else if (url) {
-          URL.revokeObjectURL(url);
-        }
+        if (isLiveRef.current) nextTextRef.current = text;
       } catch {
         // Non-fatal: advanceLive will fetch fresh when the current segment ends
       } finally {
@@ -195,16 +246,16 @@ export default function AiCommentary({ uploadSpeed = 0 }) {
   };
 
   /**
-   * Play one live segment.  Wires up the time-based pre-fetch trigger and
-   * the onended auto-advance so the stream is seamless.
+   * Speak one live segment.  Wires up the progress-based pre-fetch trigger
+   * (via onboundary) and the onend auto-advance so the stream is seamless.
    */
-  const playLiveSegment = (text, url) => {
+  const playLiveSegment = (text) => {
     if (!isLiveRef.current) return;
     setCommentary(text);
     setLiveStatus("playing");
 
-    if (!url) {
-      // Text-only fallback when Sarvam key is absent
+    if (typeof window === "undefined" || !window.speechSynthesis) {
+      // Text-only fallback when Web Speech API is unavailable
       setIsPlaying(false);
       textOnlyTimerRef.current = setTimeout(() => {
         if (isLiveRef.current) advanceLive();
@@ -212,35 +263,44 @@ export default function AiCommentary({ uploadSpeed = 0 }) {
       return;
     }
 
-    const audio = new Audio(url);
-    audioRef.current = audio;
+    let prefetchFired = false;
+
+    // Fallback timer: trigger prefetch if onboundary doesn't fire (e.g., Firefox)
+    prefetchTimerRef.current = setTimeout(() => {
+      if (!prefetchFired) { prefetchFired = true; triggerPrefetch(); }
+    }, PREFETCH_FALLBACK_DELAY_MS);
+
+    const clearPrefetchTimer = () => {
+      if (prefetchTimerRef.current) { clearTimeout(prefetchTimerRef.current); prefetchTimerRef.current = null; }
+    };
+
+    speakText(text, selectedModeRef.current, {
+      onProgress: () => {
+        if (!prefetchFired) {
+          prefetchFired = true;
+          clearPrefetchTimer();
+          triggerPrefetch();
+        }
+      },
+      onEnd: () => {
+        clearPrefetchTimer();
+        if (!isLiveRef.current) { setIsPlaying(false); return; }
+        advanceLive();
+      },
+      onError: () => {
+        clearPrefetchTimer();
+        setIsPlaying(false);
+        if (isLiveRef.current) setTimeout(() => { if (isLiveRef.current) advanceLive(); }, AUDIO_ERROR_RETRY_DELAY_MS);
+      },
+    });
+
     setIsPlaying(true);
-
-    audio.ontimeupdate = () => {
-      if (!audio.duration) return;
-      if (audio.duration - audio.currentTime <= PREFETCH_BEFORE_END_SECS) {
-        triggerPrefetch();
-      }
-    };
-
-    audio.onended = () => {
-      URL.revokeObjectURL(url);
-      if (!isLiveRef.current) { setIsPlaying(false); return; }
-      advanceLive();
-    };
-
-    audio.onerror = () => {
-      setIsPlaying(false);
-      if (isLiveRef.current) setTimeout(() => { if (isLiveRef.current) advanceLive(); }, AUDIO_ERROR_RETRY_DELAY_MS);
-    };
-
-    audio.play();
   };
 
   /**
    * Move to the next live segment.
-   * Priority: ① pre-fetched segment already ready → play immediately (zero gap)
-   *           ② in-flight pre-fetch → await it then play
+   * Priority: ① pre-fetched text ready → speak immediately (near-zero gap)
+   *           ② in-flight pre-fetch → await it then speak
    *           ③ fetch fresh (pre-fetch wasn't triggered or failed)
    */
   const advanceLive = async () => {
@@ -248,20 +308,20 @@ export default function AiCommentary({ uploadSpeed = 0 }) {
     setLiveStatus("fetching");
 
     // ① Pre-fetch already landed
-    if (nextSegmentRef.current) {
-      const { text, url } = nextSegmentRef.current;
-      nextSegmentRef.current = null;
-      playLiveSegment(text, url);
+    if (nextTextRef.current) {
+      const text = nextTextRef.current;
+      nextTextRef.current = null;
+      playLiveSegment(text);
       return;
     }
 
     // ② Await in-flight pre-fetch
     if (prefetchPromiseRef.current) {
       await prefetchPromiseRef.current;
-      if (nextSegmentRef.current && isLiveRef.current) {
-        const { text, url } = nextSegmentRef.current;
-        nextSegmentRef.current = null;
-        playLiveSegment(text, url);
+      if (nextTextRef.current && isLiveRef.current) {
+        const text = nextTextRef.current;
+        nextTextRef.current = null;
+        playLiveSegment(text);
         return;
       }
     }
@@ -272,9 +332,8 @@ export default function AiCommentary({ uploadSpeed = 0 }) {
       const mode = selectedModeRef.current;
       const ctx  = buildContextRef.current();
       const text = await fetchCommentaryText(mode, ctx);
-      const url  = await fetchTTSUrl(text, mode);
-      if (!isLiveRef.current) { if (url) URL.revokeObjectURL(url); return; }
-      playLiveSegment(text, url);
+      if (!isLiveRef.current) return;
+      playLiveSegment(text);
     } catch (e) {
       if (isLiveRef.current) {
         setLiveError(`Live stopped: ${e.message}`);
@@ -288,7 +347,7 @@ export default function AiCommentary({ uploadSpeed = 0 }) {
     setIsLive(true);
     setLiveError("");
     setLiveStatus("fetching");
-    nextSegmentRef.current     = null;
+    nextTextRef.current        = null;
     prefetchingRef.current     = false;
     prefetchPromiseRef.current = null;
     stopAudio();
@@ -298,9 +357,8 @@ export default function AiCommentary({ uploadSpeed = 0 }) {
       const mode = selectedModeRef.current;
       const ctx  = buildContextRef.current();
       const text = await fetchCommentaryText(mode, ctx);
-      const url  = await fetchTTSUrl(text, mode);
-      if (!isLiveRef.current) { if (url) URL.revokeObjectURL(url); return; }
-      playLiveSegment(text, url);
+      if (!isLiveRef.current) return;
+      playLiveSegment(text);
     } catch (e) {
       setLiveError(e.message);
       isLiveRef.current = false;
@@ -310,13 +368,12 @@ export default function AiCommentary({ uploadSpeed = 0 }) {
   };
 
   const stopLiveCommentary = () => {
-    isLiveRef.current = false;
+    isLiveRef.current          = false;
+    nextTextRef.current        = null;
+    prefetchPromiseRef.current = null;
+    prefetchingRef.current     = false;
     setIsLive(false);
     setLiveStatus("");
-    prefetchingRef.current = false;
-    if (nextSegmentRef.current?.url) URL.revokeObjectURL(nextSegmentRef.current.url);
-    nextSegmentRef.current     = null;
-    prefetchPromiseRef.current = null;
     stopAudio();
   };
 
@@ -441,18 +498,15 @@ export default function AiCommentary({ uploadSpeed = 0 }) {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={playCommentary}
-                      disabled={isLoadingAudio}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-pink-600 text-white text-xs font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-pink-600 text-white text-xs font-medium hover:opacity-90 transition-opacity"
                       aria-label={isPlaying ? "Stop voice" : "Play voice"}
                     >
-                      {isLoadingAudio ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : isPlaying ? (
+                      {isPlaying ? (
                         <VolumeX className="w-3.5 h-3.5" />
                       ) : (
                         <Volume2 className="w-3.5 h-3.5" />
                       )}
-                      {isLoadingAudio ? "Loading…" : isPlaying ? "Stop" : "Hear it"}
+                      {isPlaying ? "Stop" : "Hear it"}
                     </button>
 
                     <button
@@ -493,3 +547,4 @@ export default function AiCommentary({ uploadSpeed = 0 }) {
     </div>
   );
 }
+

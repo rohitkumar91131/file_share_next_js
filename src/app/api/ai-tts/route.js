@@ -1,6 +1,7 @@
-// Sarvam AI Text-to-Speech proxy route.
+// Optional Sarvam AI Text-to-Speech proxy (higher quality, requires API key).
+// The primary TTS path uses the browser's built-in Web Speech API (no API key needed).
+// Set SARVAM_API_KEY in your .env.local only if you want Sarvam voice quality.
 // Docs: https://docs.sarvam.ai/api-reference-docs/text-to-speech
-// Set SARVAM_API_KEY in your .env.local to enable real TTS.
 
 const SARVAM_TTS_URL = "https://api.sarvam.ai/text-to-speech";
 
