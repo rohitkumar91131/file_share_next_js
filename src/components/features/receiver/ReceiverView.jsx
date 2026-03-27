@@ -6,6 +6,7 @@ import FilesList from './FilesList';
 import FileReceiver from './FileReceiver';
 import InputBox from '@/components/features/sender/InputBox';
 import ChatBox from '@/components/features/chat/ChatBox';
+import AiCommentary from '@/components/features/commentary/AiCommentary';
 import ConnectedStatus from '@/components/shared/ConnectedStatus';
 import SpeedStats from '@/components/shared/SpeedStats';
 import { useReceivingStatus } from '@/context/ReceivingSideStatusContext';
@@ -51,6 +52,9 @@ export default function ReceiverView() {
 
         {/* Floating chat panel */}
         <ChatBox />
+
+        {/* Floating AI commentary panel */}
+        <AiCommentary uploadSpeed={uploadSpeed} />
 
         {/* Top Right Connected Status */}
         {!showPairingStatus && <ConnectedStatus />}
