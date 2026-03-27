@@ -54,6 +54,8 @@ export default function AiCommentary({ uploadSpeed = 0 }) {
   const [isLive, setIsLive]         = useState(false);
   const [liveStatus, setLiveStatus] = useState(""); // "fetching" | "playing"
   const [liveError, setLiveError]   = useState("");
+  // Each peer independently controls whether commentary is spoken aloud
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
 
   const utteranceRef       = useRef(null);
   const textOnlyTimerRef   = useRef(null);
@@ -67,8 +69,10 @@ export default function AiCommentary({ uploadSpeed = 0 }) {
   // Always-fresh pointers updated on every render
   const buildContextRef    = useRef(null);
   const selectedModeRef    = useRef(selectedMode);
+  const voiceEnabledRef              = useRef(true);  // readable in async callbacks
+  const incomingCommentaryHandlerRef = useRef(null);  // keeps incoming-msg handler fresh
 
-  const { connectionState, connectionType } = useWebRTCStore();
+  const { connectionState, connectionType, webrtc } = useWebRTCStore();
   const { files: receivedFiles, downloadSpeed } = useReceiveFileData();
   const { selectedFiles } = useSendFileData();
 
@@ -88,12 +92,29 @@ export default function AiCommentary({ uploadSpeed = 0 }) {
   // Keep refs fresh so async live-loop callbacks always see latest state
   buildContextRef.current = buildContext;
   selectedModeRef.current = selectedMode;
+  voiceEnabledRef.current = voiceEnabled;
 
   // Stop all speech on unmount
   useEffect(() => {
     return () => stopAudio();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Listen for commentary broadcast from the remote peer over the WebRTC data channel
+  useEffect(() => {
+    if (!webrtc?.dataChannel) return;
+    const dc = webrtc.dataChannel;
+    const handleMessage = (event) => {
+      if (typeof event.data !== "string") return;
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type !== "commentary" || typeof msg.text !== "string") return;
+        incomingCommentaryHandlerRef.current?.(msg.text);
+      } catch { /* ignore non-JSON or non-commentary messages */ }
+    };
+    dc.addEventListener("message", handleMessage);
+    return () => dc.removeEventListener("message", handleMessage);
+  }, [webrtc?.dataChannel]);
 
   // ── Shared helpers ────────────────────────────────────────────────────────
 
@@ -106,6 +127,14 @@ export default function AiCommentary({ uploadSpeed = 0 }) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Failed to generate commentary");
     return data.text;
+  };
+
+  /** Broadcast commentary text to the remote peer over the WebRTC data channel */
+  const broadcastCommentary = (text) => {
+    const dc = webrtc?.dataChannel;
+    if (dc && dc.readyState === "open") {
+      dc.send(JSON.stringify({ type: "commentary", text }));
+    }
   };
 
   const clearSpeechResumeTimer = () => {
@@ -199,6 +228,7 @@ export default function AiCommentary({ uploadSpeed = 0 }) {
     try {
       const text = await fetchCommentaryText(selectedMode, buildContext());
       setCommentary(text);
+      broadcastCommentary(text);
     } catch (e) {
       setGenError(e.message);
     } finally {
